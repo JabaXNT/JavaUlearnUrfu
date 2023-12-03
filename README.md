@@ -9,3 +9,6 @@
 4. Получив данные из vk api, внести их в базу данных
 5.  Запросить данные из базы данных и на их основе построить графики
 6.  PROFIT!
+
+ER diagram:
+![image](https://github.com/JabaXNT/JavaUlearnUrfu/assets/74655944/b8fe1c9a-94ba-48f6-9ec6-ea6c11f9e96d)
