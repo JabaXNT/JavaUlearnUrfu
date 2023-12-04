@@ -37,8 +37,8 @@ public class ParserCSV {
     }
 
     public ArrayList<Student> parseStudents() throws IOException, CsvValidationException {
-        try (CSVReader reader = getReader(3)) {
-            String[] headers = getHeaders();
+        try (CSVReader reader = createCsvReaderWithSkipLines(3)) {
+            String[] headers = readCsvHeaders();
             int fullNameIndex = ArrayUtils.indexOf(headers, "Фамилия Имя");
             int ulearnIdIndex = ArrayUtils.indexOf(headers, "Ulearn id");
             int emailIndex = ArrayUtils.indexOf(headers, "Эл. почта");
@@ -59,8 +59,8 @@ public class ParserCSV {
 
     public ArrayList<SummaryProgress> getSummaryProgressList() throws IOException, CsvValidationException {
         ArrayList<SummaryProgress> summaryProgressList = new ArrayList<>();
-        try (CSVReader reader = getReader(3)) {
-            String[] headers = getHeaders();
+        try (CSVReader reader = createCsvReaderWithSkipLines(3)) {
+            String[] headers = readCsvHeaders();
             int ulearnIdIndex = ArrayUtils.indexOf(headers, "Ulearn id");
 
             String[] row;
@@ -77,7 +77,7 @@ public class ParserCSV {
     }
 
     public ArrayList<String> parseThemes() throws IOException, CsvValidationException {
-        try (CSVReader reader = getReader()) {
+        try (CSVReader reader = createCsvReader()) {
             String[] row = reader.readNext();
             return IntStream.range(1, row.length)
                 .mapToObj(i -> row[i])
@@ -87,7 +87,7 @@ public class ParserCSV {
     }
 
     public ArrayList<String> parseExercises() throws IOException, CsvValidationException {
-        try (CSVReader reader = getReader(1)) {
+        try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             return Arrays.stream(row)
                 .filter(s -> s.startsWith("Упр: "))
@@ -97,7 +97,7 @@ public class ParserCSV {
     }
 
     public ArrayList<String> parsePractices() throws IOException, CsvValidationException {
-        try (CSVReader reader = getReader(1)) {
+        try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             return Arrays.stream(row)
                 .filter(s -> s.startsWith("ДЗ: "))
@@ -107,45 +107,45 @@ public class ParserCSV {
     }
 
     public HashMap<String, HashMap<String, Integer>> parseExercisesScores() throws CsvValidationException, IOException {
-        try (CSVReader reader = getReader(1)) {
+        try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             if (row == null) {
                 return new HashMap<>();
             }
-            HashMap<String, Integer> colIndexes = getIndexes(parseExercises(), row, "Упр: ");
+            HashMap<String, Integer> colIndexes = mapColumnNamesToIndexes(parseExercises(), row, "Упр: ");
             return getUidScores(colIndexes);
         }
     }
 
     public HashMap<String, HashMap<String, Integer>> parsePracticesScores() throws CsvValidationException, IOException {
-        try (CSVReader reader = getReader(1)) {
+        try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             if (row == null) {
                 return new HashMap<>();
             }
-            HashMap<String, Integer> colIndexes = getIndexes(parsePractices(), row, "ДЗ: ");
+            HashMap<String, Integer> colIndexes = mapColumnNamesToIndexes(parsePractices(), row, "ДЗ: ");
             return getUidScores(colIndexes);
         }
     }
 
-    private String[] getHeaders() throws IOException, CsvValidationException {
-        CSVReader reader = getReader(1);
+    private String[] readCsvHeaders() throws IOException, CsvValidationException {
+        CSVReader reader = createCsvReaderWithSkipLines(1);
         return reader.readNext();
     }
 
-    private CSVReader getReader() throws IOException {
+    private CSVReader createCsvReader() throws IOException {
         CSVParser parser = new CSVParserBuilder().withSeparator(';').build();
         FileReader fileReader = new FileReader(fileName, Charset.forName("UTF-8"));
         return new CSVReaderBuilder(fileReader).withCSVParser(parser).build();
     }
 
-    private CSVReader getReader(int skip) throws IOException {
+    private CSVReader createCsvReaderWithSkipLines(int skip) throws IOException {
         CSVParser parser = new CSVParserBuilder().withSeparator(';').build();
         FileReader fileReader = new FileReader(fileName, Charset.forName("UTF-8"));
         return new CSVReaderBuilder(fileReader).withCSVParser(parser).withSkipLines(skip).build();
     }
 
-    private HashMap<String, Integer> getIndexes(ArrayList<String> values, String[] array, String headerPrefix) {
+    private HashMap<String, Integer> mapColumnNamesToIndexes(ArrayList<String> values, String[] array, String headerPrefix) {
         HashMap<String, Integer> indexes = new HashMap<String, Integer>();
         for (String e: values) {
             indexes.put(e, ArrayUtils.indexOf(array, headerPrefix + e));
@@ -155,7 +155,7 @@ public class ParserCSV {
 
     private HashMap<String, HashMap<String, Integer>> getUidScores(HashMap<String, Integer> colIndexes) throws IOException, CsvValidationException {
         HashMap<String, HashMap<String, Integer>> result = new HashMap<String, HashMap<String, Integer>>();
-        CSVReader reader = getReader(1);
+        CSVReader reader = createCsvReaderWithSkipLines(1);
         String[] headerRow = reader.readNext();
         reader.readNext();
         for (String key: colIndexes.keySet()) {

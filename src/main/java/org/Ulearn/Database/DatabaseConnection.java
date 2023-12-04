@@ -8,6 +8,7 @@ import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.MongoCollection;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import org.Ulearn.DbEntity.Student;
 import org.Ulearn.DbEntity.SummaryProgress;
@@ -91,6 +92,27 @@ public class DatabaseConnection {
             System.out.println("Summary progress inserted/updated successfully");
         } catch (MongoException me) {
             System.err.println("Insertion/Update failed: " + me.getMessage());
+        }
+    }
+
+    public void updateStudentsWithBdate(List<String> usersWithBdate) {
+        try {
+            for (String userWithBdate : usersWithBdate) {
+                String[] parts = userWithBdate.split(", ");
+                String fullName = parts[0];
+                String bdate = parts[1];
+    
+                Document student = studentCollection.find(new Document("name", fullName)).first();
+                if (student != null) {
+                    Bson filter = new Document("name", fullName);
+                    Bson update = new Document("$set", new Document("bdate", bdate));
+                    studentCollection.updateOne(filter, update);
+                }
+            }
+    
+            System.out.println("Birth dates updated successfully");
+        } catch (MongoException me) {
+            System.err.println("Update failed: " + me.getMessage());
         }
     }
 
