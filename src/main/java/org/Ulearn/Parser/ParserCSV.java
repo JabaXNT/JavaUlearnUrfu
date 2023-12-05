@@ -16,6 +16,9 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.ArrayList;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -96,6 +99,7 @@ public class ParserCSV {
         }
     }
 
+
     public ArrayList<String> parsePractices() throws IOException, CsvValidationException {
         try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
@@ -106,7 +110,51 @@ public class ParserCSV {
         }
     }
 
-    public HashMap<String, HashMap<String, Integer>> parseExercisesScores() throws CsvValidationException, IOException {
+    public List<String> parseAndConcatenateExercises() throws IOException, CsvValidationException {
+        try (CSVReader reader = createCsvReader()) {
+            reader.readNext();
+            String[] secondRow = reader.readNext();
+    
+            StringBuilder concatenatedExercises = new StringBuilder();
+            for (String cell : secondRow) {
+                if (cell.contains("Упр:") || cell.contains("Акт") || cell.contains("Сем")) {
+                    concatenatedExercises.append(cell).append(" ");
+                }
+            }
+    
+            String exercises = concatenatedExercises.toString();
+            exercises = exercises.substring(exercises.indexOf("Упр:"));
+            return Arrays.asList(exercises.split("\\s*Сем Акт\\s*"));
+        }
+    }
+
+    public List<String> parseAndConcatenatePractices() throws IOException, CsvValidationException {
+        try (CSVReader reader = createCsvReader()) {
+            reader.readNext();
+            String[] secondRow = reader.readNext();
+    
+            StringBuilder concatenatedPractices = new StringBuilder();
+            for (String cell : secondRow) {
+                if (cell.contains("ДЗ:") || cell.contains("Акт") || cell.contains("Сем")) {
+                    concatenatedPractices.append(cell).append(" ");
+                }
+            }
+    
+            String practices = concatenatedPractices.toString();
+            practices = practices.substring(practices.indexOf("ДЗ:"));
+            List<String> splitPractices = Arrays.asList(practices.split("\\s*Сем Акт\\s*"));
+    
+            for (int i = 0; i < splitPractices.size(); i++) {
+                String practice = splitPractices.get(i);
+                practice = practice.replace("Сем", "").replace("ДЗ:", "").trim();
+                splitPractices.set(i, practice);
+            }
+    
+            return splitPractices;
+        }
+    }
+
+    public HashMap<String, HashMap<String, Integer>> parseExercisesScoresByUid() throws CsvValidationException, IOException {
         try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             if (row == null) {
@@ -117,7 +165,7 @@ public class ParserCSV {
         }
     }
 
-    public HashMap<String, HashMap<String, Integer>> parsePracticesScores() throws CsvValidationException, IOException {
+    public HashMap<String, HashMap<String, Integer>> parsePracticesScoresByUid() throws CsvValidationException, IOException {
         try (CSVReader reader = createCsvReaderWithSkipLines(1)) {
             String[] row = reader.readNext();
             if (row == null) {
@@ -126,6 +174,34 @@ public class ParserCSV {
             HashMap<String, Integer> colIndexes = mapColumnNamesToIndexes(parsePractices(), row, "ДЗ: ");
             return getUidScores(colIndexes);
         }
+    }
+
+    public Map<String, List<String>> parseExercisesByThemes() throws IOException, CsvValidationException {
+        List<String> themes = parseThemes();
+        List<String> exercises = parseAndConcatenateExercises();
+    
+        Map<String, List<String>> exercisesByThemes = new LinkedHashMap<>();
+        for (int i = 0; i < themes.size(); i++) {
+            String theme = themes.get(i);
+            String[] splitExercises = exercises.get(i).replace("Упр:", "").trim().split("  ");
+            exercisesByThemes.put(theme, Arrays.asList(splitExercises));
+        }
+    
+        return exercisesByThemes;
+    }
+
+    public Map<String, List<String>> parsePracticesByThemes() throws IOException, CsvValidationException {
+        List<String> themes = parseThemes();
+        List<String> practices = parseAndConcatenatePractices();
+    
+        Map<String, List<String>> practicesByThemes = new LinkedHashMap<>();
+        for (int i = 1; i < themes.size(); i++) {
+            String theme = themes.get(i);
+            String[] splitPractices = practices.get(i - 1).split("  ");
+            practicesByThemes.put(theme, Arrays.asList(splitPractices));
+        }
+    
+        return practicesByThemes;
     }
 
     private String[] readCsvHeaders() throws IOException, CsvValidationException {
