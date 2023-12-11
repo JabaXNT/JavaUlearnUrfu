@@ -6,8 +6,7 @@ import com.mongodb.client.FindIterable;
 import com.mongodb.client.MongoClient;
 import com.mongodb.client.MongoClients;
 import com.mongodb.client.MongoDatabase;
-import com.mongodb.client.model.Accumulators;
-import com.mongodb.client.model.Aggregates;
+import com.mongodb.client.model.Filters;
 import com.mongodb.client.model.UpdateOptions;
 import com.mongodb.client.MongoCollection;
 
@@ -46,11 +45,15 @@ public class DatabaseController {
             this.database = mongoClient.getDatabase("ulearn");
             this.studentCollection = database.getCollection("students");
             this.themesCollection = database.getCollection("themes");
-            this.summaryProgressCollection = database.getCollection("summaryProgress");
+            this.summaryProgressCollection = database.getCollection("summary_progress");
             System.out.println("Connection successful");
         } catch (MongoException me) {
             System.err.println("Connection failed: " + me.getMessage());
         }
+    }
+
+    public void closeConnection() {
+        mongoClient.close();
     }
 
     public void insertStudents(ArrayList<Student> students) {
@@ -93,7 +96,7 @@ public class DatabaseController {
                 Document doc = new Document("student_id", summaryProgress.getStudent_id())
                     .append("activity", summaryProgress.getActivity())
                     .append("exercise", summaryProgress.getExercise())
-                    .append("homework", summaryProgress.getHomework())
+                    .append("practise", summaryProgress.getPractise())
                     .append("seminar", summaryProgress.getSeminars());
 
                 Bson filter = new Document("student_id", summaryProgress.getStudent_id());
@@ -496,6 +499,107 @@ public class DatabaseController {
             } catch (MongoException me) {
                 System.err.println("Operation failed: " + me.getMessage());
             }
+        
+            return dataset;
+        }
+
+        public DefaultCategoryDataset getSchoolsDataset() {
+            MongoCollection<Document> studentsCollection = database.getCollection("students");
+        
+            DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+            HashMap<String, Integer> schoolCounts = new HashMap<>();
+        
+            FindIterable<Document> students = studentsCollection.find();
+            for (Document student : students) {
+                List<String> schools = (List<String>) student.get("schools");
+                if (schools != null) {
+                    for (String school : schools) {
+                        schoolCounts.put(school, schoolCounts.getOrDefault(school, 0) + 1);
+                    }
+                }
+            }
+        
+            for (Map.Entry<String, Integer> entry : schoolCounts.entrySet()) {
+                if (entry.getValue() > 1) {
+                    dataset.addValue(entry.getValue(), "Number of Students", entry.getKey());
+                }
+            }
+        
+            return dataset;
+        }
+
+        public DefaultCategoryDataset getThemesDataset() {
+            MongoCollection<Document> themesCollection = database.getCollection("themes");
+            MongoCollection<Document> practiceProgressCollection = database.getCollection("student_practice_themes_progress");
+        
+            HashMap<String, List<Integer>> themeScores = new HashMap<>();
+        
+            FindIterable<Document> themes = themesCollection.find();
+            for (Document theme : themes) {
+                String themeName = theme.getString("name");
+                themeScores.put(themeName, new ArrayList<>());
+            }
+        
+            FindIterable<Document> practiceProgress = practiceProgressCollection.find();
+            for (Document progress : practiceProgress) {
+                for (String key : progress.keySet()) {
+                    if (!key.equals("_id") && !key.equals("student_id") && themeScores.containsKey(key)) {
+                        int score = progress.getInteger(key);
+                        themeScores.get(key).add(score);
+                    }
+                }
+            }
+        
+            DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+        
+            List<Map.Entry<String, List<Integer>>> entries = new ArrayList<>(themeScores.entrySet());
+            entries.sort((entry1, entry2) -> {
+                double averageScore1 = entry1.getValue().stream().mapToInt(Integer::intValue).average().orElse(0);
+                double averageScore2 = entry2.getValue().stream().mapToInt(Integer::intValue).average().orElse(0);
+                return Double.compare(averageScore2, averageScore1);
+            });
+        
+            for (Map.Entry<String, List<Integer>> entry : entries) {
+                double averageScore = entry.getValue().stream().mapToInt(Integer::intValue).average().orElse(0);
+                dataset.addValue(averageScore, "Average Score", entry.getKey());
+            }
+        
+            return dataset;
+        }
+
+        public DefaultCategoryDataset getAverageScoreBySexDataset() {
+            MongoCollection<Document> summaryProgressCollection = database.getCollection("summary_progress");
+            MongoCollection<Document> studentsCollection = database.getCollection("students");
+        
+            Map<String, String> studentSexes = new HashMap<>();
+            FindIterable<Document> students = studentsCollection.find();
+            for (Document student : students) {
+                studentSexes.put(student.getString("_id"), student.getString("sex"));
+            }
+        
+            List<Integer> maleScores = new ArrayList<>();
+            List<Integer> femaleScores = new ArrayList<>();
+        
+            FindIterable<Document> summaryProgress = summaryProgressCollection.find();
+            for (Document progress : summaryProgress) {
+                String studentId = progress.getString("student_id");
+                int totalScore = Integer.parseInt(progress.getString("practise"));
+        
+                String sex = studentSexes.get(studentId);
+                if (sex != null) {
+                    if ("Male".equals(sex)) {
+                        maleScores.add(totalScore);
+                    } else if ("Female".equals(sex)) {
+                        femaleScores.add(totalScore);
+                    }
+                }
+            }
+        
+            DefaultCategoryDataset dataset = new DefaultCategoryDataset();
+            double averageMaleScore = maleScores.stream().mapToInt(Integer::intValue).average().orElse(0);
+            double averageFemaleScore = femaleScores.stream().mapToInt(Integer::intValue).average().orElse(0);
+            dataset.addValue(averageMaleScore, "Average Score", "Male");
+            dataset.addValue(averageFemaleScore, "Average Score", "Female");
         
             return dataset;
         }
